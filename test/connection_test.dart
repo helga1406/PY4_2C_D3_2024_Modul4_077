@@ -32,8 +32,7 @@ void main() {
       await mongoService.connect();
 
       expect(mongoService.db.isConnected, true);
-
-      // Output sukses yang rapi di Debug Console
+      
       log("SUCCESS: Koneksi Atlas Terverifikasi", name: "TEST");
 
     } catch (e) {
