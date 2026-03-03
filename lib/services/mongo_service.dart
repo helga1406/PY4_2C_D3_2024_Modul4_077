@@ -1,4 +1,4 @@
-import 'dart:developer';
+import 'package:flutter/foundation.dart'; 
 import 'package:mongo_dart/mongo_dart.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:logbook_app_077/features/logbook/models/log_model.dart';
@@ -9,21 +9,27 @@ class MongoService {
   static final MongoService _instance = MongoService._internal();
   factory MongoService() => _instance;
 
-  // Variabel instance untuk koneksi
   Db? _db;
-  final String _collectionName = "logs"; 
+  final String _collectionName = "logs";
+  final String _source = "mongo_service.dart";
 
-  // Getter untuk akses database dengan proteksi
+  // Getter DB untuk keperluan unit test (connection_test.dart)
   Db get db {
-    if (_db == null || !_db!.isConnected) {
-      throw Exception("Database tidak tersedia atau koneksi terputus!");
+    if (_db == null) {
+      throw Exception("DATABASE: Belum diinisialisasi! Panggil connect() dulu.");
     }
     return _db!;
   }
+  Future<DbCollection> _getSafeCollection() async {
+    if (_db == null || !_db!.isConnected) {
+      debugPrint('\x1B[33m[INFO][$_source] -> Koneksi belum siap, mencoba menghubungkan...\x1B[0m');
+      await connect();
+    }
+    return _db!.collection(_collectionName);
+  }
 
-  // TASK 3: Async Connection with Protection
+  /// TASK 3: Async Connection with debugPrint
   Future<void> connect() async {
-    // Jika sudah konek, jangan buat koneksi baru (Prinsip Singleton)
     if (_db != null && _db!.isConnected) return;
 
     try {
@@ -33,57 +39,58 @@ class MongoService {
       }
 
       _db = await Db.create(mongoUri);
-      await _db!.open();
       
-      log("SUCCESS: Terhubung ke MongoDB Atlas Cloud.", name: "MongoService");
+      await _db!.open().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          throw "Koneksi ke MongoDB Atlas Timeout (Cek Whitelist IP/Sinyal)";
+        },
+      );
+      debugPrint('\x1B[32m[INFO][$_source] -> DATABASE: Terhubung & Koleksi Siap\x1B[0m');
+      
     } catch (e) {
-      log("ERROR: Gagal terhubung ke MongoDB Atlas", name: "MongoService", error: e);
-      rethrow; // Teruskan error agar bisa ditangani di UI/Controller
+      debugPrint('\x1B[31m[ERROR][$_source] -> DATABASE: Gagal Koneksi - $e\x1B[0m');
+      rethrow; 
     }
   }
 
-  // --- TASK 3: CRUD OPERASI ASYNCHRONOUS ---
+  // --- TASK 3: CRUD OPERASI ---
 
-  // 1. Ambil data (Read)
   Future<List<LogModel>> getLogs(String username) async {
     try {
-      await connect();
-      final collection = db.collection(_collectionName);
+      final collection = await _getSafeCollection();
+      debugPrint('\x1B[34m[INFO][$_source] -> Fetching data for user: $username\x1B[0m');
+
+      final result = await collection
+          .find(where.eq('username', username).sortBy('timestamp', descending: true))
+          .toList();
       
-      // Mengambil data berdasarkan username
-      final result = await collection.find(where.eq('username', username)).toList();
-      
-      // Konversi list Map menjadi list LogModel
       return result.map((e) => LogModel.fromMap(e)).toList();
     } catch (e) {
-      log("Error getLogs: $e", name: "MongoService");
+      debugPrint('\x1B[31m[ERROR][$_source] -> Fetch Failed: $e\x1B[0m');
       return [];
     }
   }
 
-  // 2. Tambah data (Create)
   Future<void> insertLog(LogModel logData, String username) async {
     try {
-      await connect();
-      final collection = db.collection(_collectionName);
-      
+      final collection = await _getSafeCollection();
       var data = logData.toMap();
-      data['username'] = username; // Tambahkan field username untuk identifikasi cloud
+      data['username'] = username; 
       
       await collection.insertOne(data);
-      log("Data berhasil disimpan ke Cloud", name: "MongoService");
+      debugPrint('\x1B[32m[SUCCESS][$_source] -> Data "${logData.title}" Saved to Cloud\x1B[0m');
     } catch (e) {
-      log("Error insertLog: $e", name: "MongoService");
+      debugPrint('\x1B[31m[ERROR][$_source] -> Insert Failed: $e\x1B[0m');
+      rethrow;
     }
   }
 
-  // 3. Ubah data (Update) - MENGGUNAKAN ID (ObjectId)
   Future<void> updateLog(LogModel updatedLog, String username) async {
     try {
-      await connect();
-      final collection = db.collection(_collectionName);
-      
-      // PERBAIKAN: Gunakan ID agar update akurat (Mapping BSON)
+      final collection = await _getSafeCollection();
+      if (updatedLog.id == null) throw "ID Log tidak ditemukan untuk update";
+
       await collection.updateOne(
         where.id(updatedLog.id!).and(where.eq('username', username)),
         modify
@@ -92,23 +99,25 @@ class MongoService {
             .set('category', updatedLog.category)
             .set('timestamp', updatedLog.timestamp),
       );
+
+      debugPrint('\x1B[32m[SUCCESS][$_source] -> Update "${updatedLog.title}" Berhasil\x1B[0m');
     } catch (e) {
-      log("Error updateLog: $e", name: "MongoService");
+      debugPrint('\x1B[31m[ERROR][$_source] -> Update Gagal: $e\x1B[0m');
+      rethrow;
     }
   }
 
-  // 4. Hapus data (Delete) - MENGGUNAKAN ID (ObjectId)
   Future<void> deleteLog(ObjectId logId, String username) async {
     try {
-      await connect();
-      final collection = db.collection(_collectionName);
-      
-      // PERBAIKAN: Hapus berdasarkan ID unik MongoDB
+      final collection = await _getSafeCollection();
       await collection.remove(
         where.id(logId).and(where.eq('username', username))
       );
+
+      debugPrint('\x1B[32m[SUCCESS][$_source] -> Hapus ID $logId Berhasil\x1B[0m');
     } catch (e) {
-      log("Error deleteLog: $e", name: "MongoService");
+      debugPrint('\x1B[31m[ERROR][$_source] -> Hapus Gagal: $e\x1B[0m');
+      rethrow;
     }
   }
 
@@ -116,7 +125,7 @@ class MongoService {
     if (_db != null) {
       await _db!.close();
       _db = null;
-      log("Koneksi database ditutup.", name: "MongoService");
+      debugPrint('\x1B[33m[INFO][$_source] -> DATABASE: Koneksi ditutup\x1B[0m');
     }
   }
 }
