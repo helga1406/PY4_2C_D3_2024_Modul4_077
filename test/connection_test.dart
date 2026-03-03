@@ -23,7 +23,6 @@ void main() {
   test('Verifikasi Koneksi MongoDB Atlas via MongoService', () async {
     final mongoService = MongoService();
     
-    // Menggunakan log() alih-alih print()
     log("--- START CONNECTION TEST ---", name: "TEST");
 
     try {
