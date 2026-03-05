@@ -140,7 +140,7 @@ class _LogViewState extends State<LogView> {
             foregroundColor: Colors.white,
           ),
         ),
-        const Spacer(flex:5),// Mendorong konten dari bawah
+        const Spacer(flex:5),
       ],
     );
   }
