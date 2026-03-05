@@ -71,48 +71,46 @@ class _LogViewState extends State<LogView> {
       body: Column(
         children: [
           _buildSearchBarAndFilter(),
-          Expanded(
-            child: FutureBuilder<List<LogModel>>(
-              future: _logsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return _buildErrorState(); 
-                }
+            Expanded(
+              child: FutureBuilder<List<LogModel>>(
+                future: _logsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return _buildErrorState(); 
+                  }
 
-                final logs = snapshot.data ?? [];
-                final filtered = _filterLogs(logs);
+                  final logs = snapshot.data ?? [];
+                  final filtered = _filterLogs(logs);
 
-              if (logs.isEmpty) {
-              return RefreshIndicator(
-                onRefresh: () async => _fetchLogs(),
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.7, // Beri ruang agar Spacer bisa bekerja
-                    child: _buildEmptyState(),
+                if (logs.isEmpty) {
+                return RefreshIndicator(
+                  onRefresh: () async => _fetchLogs(),
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.7, 
+                      child: _buildEmptyState(),
+                    ),
                   ),
-                ),
-              );
-            }
-
-                // 4. TAMPILAN DATA LIST
-                return _buildLogList(filtered);
-              },
+                );
+              }
+                  return _buildLogList(filtered);
+                },
+              ),
             ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openLogDialog(),
-        backgroundColor: _primaryPink,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
+          ],
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () => _openLogDialog(),
+          backgroundColor: _primaryPink,
+          foregroundColor: Colors.white,
+          child: const Icon(Icons.add),
+        ),
+      );
+    }
 // --- WIDGET ERROR STATE  ---
   Widget _buildErrorState() {
     return Column(
