@@ -88,10 +88,9 @@ class MongoService {
         source: _source,
         level: 1,
       );
-      return [];
+      rethrow; 
     }
   }
-
   Future<void> insertLog(LogModel logData, String username) async {
     try {
       final collection = await _getSafeCollection();

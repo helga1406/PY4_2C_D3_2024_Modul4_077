@@ -17,7 +17,6 @@ class _LogViewState extends State<LogView> {
   late final LogController _controller;
   Future<List<LogModel>>? _logsFuture;
 
-  // Controllers & Constants
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
   final Color _primaryPink = const Color.fromARGB(255, 158, 101, 140);
@@ -40,11 +39,110 @@ class _LogViewState extends State<LogView> {
     super.dispose();
   }
 
-  /// Trigger a reload of the log list
   void _fetchLogs() {
     setState(() {
       _logsFuture = MongoService().getLogs(widget.username);
     });
+  }
+
+  // --- REFACTOR LOGIC DI BUILD METHOD ---
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: Text("Logbook: ${widget.username}",
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        elevation: 0,
+        backgroundColor: _primaryPink,
+        automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: () => _confirmAction(
+              title: "Konfirmasi Logout",
+              content: "Apakah Anda yakin ingin keluar?",
+              onConfirm: () => Navigator.of(context).pushReplacementNamed('/'),
+            ),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          _buildSearchBarAndFilter(),
+          Expanded(
+            child: FutureBuilder<List<LogModel>>(
+              future: _logsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return _buildErrorState(); 
+                }
+
+                final logs = snapshot.data ?? [];
+                final filtered = _filterLogs(logs);
+
+              if (logs.isEmpty) {
+              return RefreshIndicator(
+                onRefresh: () async => _fetchLogs(),
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.7, // Beri ruang agar Spacer bisa bekerja
+                    child: _buildEmptyState(),
+                  ),
+                ),
+              );
+            }
+
+                // 4. TAMPILAN DATA LIST
+                return _buildLogList(filtered);
+              },
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _openLogDialog(),
+        backgroundColor: _primaryPink,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+// --- WIDGET ERROR STATE  ---
+  Widget _buildErrorState() {
+    return Column(
+      children: [
+        const Spacer(flex: 3), 
+        Icon(Icons.wifi_off_rounded, size: 100, color: Colors.grey[400]),
+        const SizedBox(height: 20),
+        const Text(
+          "Yah, Koneksi Terputus!",
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          "Gagal menghubungi MongoDB Atlas.\nPeriksa internet kamu ya.",
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.grey[600]),
+        ),
+        const SizedBox(height: 25),
+        ElevatedButton.icon(
+          onPressed: _fetchLogs,
+          icon: const Icon(Icons.refresh),
+          label: const Text("COBA LAGI"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _primaryPink,
+            foregroundColor: Colors.white,
+          ),
+        ),
+        const Spacer(flex:5),// Mendorong konten dari bawah
+      ],
+    );
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
@@ -62,8 +160,6 @@ class _LogViewState extends State<LogView> {
     _contentController.clear();
     Navigator.pop(context);
   }
-
-  // --- Dialogs ---
 
   void _showReadLogDialog(LogModel log) {
     String formattedDate;
@@ -187,12 +283,10 @@ class _LogViewState extends State<LogView> {
   Future<void> _handleSave(bool isEdit, LogModel? oldLog) async {
     final title = _titleController.text.trim();
     final desc = _contentController.text.trim();
-
     if (title.isEmpty) {
       _showSnackBar("Judul tidak boleh kosong!", isError: true);
       return;
     }
-
     try {
       final String formattedTime = DateTime.now().toString();
       final logData = LogModel(
@@ -202,7 +296,6 @@ class _LogViewState extends State<LogView> {
         timestamp: formattedTime,
         category: _selectedCategory,
       );
-
       if (isEdit) {
         await MongoService().updateLog(logData, widget.username);
         _showSnackBar("Berhasil diperbarui!");
@@ -210,7 +303,6 @@ class _LogViewState extends State<LogView> {
         await MongoService().insertLog(logData, widget.username);
         _showSnackBar("Berhasil disimpan!");
       }
-
       if (!mounted) return;
       _closeDialog();
       _fetchLogs();
@@ -250,8 +342,6 @@ class _LogViewState extends State<LogView> {
     );
   }
 
-  // --- UI Components ---
-
   Widget _buildTextField(TextEditingController controller, String hint, {int maxLines = 1}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -283,64 +373,6 @@ class _LogViewState extends State<LogView> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text("Logbook: ${widget.username}",
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        elevation: 0,
-        backgroundColor: _primaryPink,
-        automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () => _confirmAction(
-              title: "Konfirmasi Logout",
-              content: "Apakah Anda yakin ingin keluar?",
-              onConfirm: () => Navigator.of(context).pushReplacementNamed('/'),
-            ),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildSearchBarAndFilter(),
-          Expanded(
-            child: FutureBuilder<List<LogModel>>(
-              future: _logsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return _buildErrorState();
-                }
-
-                final logs = snapshot.data ?? [];
-                final filtered = _filterLogs(logs);
-
-                if (logs.isEmpty || filtered.isEmpty) {
-                  return _buildEmptyState();
-                }
-
-                return _buildLogList(filtered);
-              },
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openLogDialog(),
-        backgroundColor: _primaryPink,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-
   Widget _buildSearchBarAndFilter() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
@@ -357,7 +389,7 @@ class _LogViewState extends State<LogView> {
                 contentPadding: EdgeInsets.zero,
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(25),
-                  borderSide: BorderSide(color: _primaryPink.withValues(alpha: 0.3)),
+                  borderSide: BorderSide(color: _primaryPink.withValues(alpha: 0.1)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(25),
@@ -378,7 +410,7 @@ class _LogViewState extends State<LogView> {
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: _primaryPink.withValues(alpha: 0.3)),
+        border: Border.all(color: _primaryPink.withValues(alpha: 0.1)),
         borderRadius: BorderRadius.circular(25),
       ),
       child: DropdownButtonHideUnderline(
@@ -412,63 +444,29 @@ class _LogViewState extends State<LogView> {
     }).toList();
   }
 
-  Widget _buildErrorState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.wifi_off_rounded, size: 100, color: Colors.grey[400]),
-          const SizedBox(height: 20),
-          const Text("Yah, Koneksi Terputus!", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          Text("Gagal menghubungi MongoDB Atlas.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
-          const SizedBox(height: 25),
-          ElevatedButton.icon(
-            onPressed: _fetchLogs,
-            icon: const Icon(Icons.refresh),
-            label: const Text("COBA LAGI"),
-            style: ElevatedButton.styleFrom(backgroundColor: _primaryPink, foregroundColor: Colors.white),
+  Widget _buildEmptyState() {
+    final bool isFiltering = _controller.searchQuery.value.isNotEmpty || 
+                             _controller.selectedFilter.value != "Semua";
+    return Column(
+      children: [
+        const Spacer(flex: 2),
+        Icon(Icons.cloud_queue_rounded, size: 100, color: _primaryPink.withValues(alpha: 0.1)),
+        const SizedBox(height: 20),
+        Text(isFiltering ? "Tidak Ditemukan" : "Cloud Masih Kosong",
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _primaryPink)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
+          child: Text(
+            isFiltering ? "Catatan tidak ditemukan." : "Belum ada catatan. Ketuk + untuk menambah.",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[600]),
           ),
-        ],
-      ),
+        ),
+        const Spacer(flex: 3),
+      ],
     );
   }
 
-Widget _buildEmptyState() {
-  final bool isFiltering = _controller.searchQuery.value.isNotEmpty || 
-                           _controller.selectedFilter.value != "Semua";
-  
-  return Column(
-    children: [
-      const Spacer(flex: 2),
-      Icon(
-        Icons.cloud_queue_rounded, 
-        size: 100, 
-        color: _primaryPink.withValues(alpha: 0.3)
-      ),
-      const SizedBox(height: 20),
-      Text(
-        isFiltering ? "Tidak Ditemukan" : "Cloud Masih Kosong",
-        style: TextStyle(
-          fontSize: 22, 
-          fontWeight: FontWeight.bold, 
-          color: _primaryPink
-        ),
-      ),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
-        child: Text(
-          isFiltering 
-              ? "Catatan tidak ditemukan." 
-              : "Belum ada catatan. Ketuk + untuk menambah.",
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey[600]),
-        ),
-      ),
-      const Spacer(flex: 3), 
-    ],
-  );
-}
   Widget _buildLogList(List<LogModel> filtered) {
     return RefreshIndicator(
       onRefresh: () async => _fetchLogs(),
