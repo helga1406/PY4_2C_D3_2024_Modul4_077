@@ -1,7 +1,7 @@
 import 'package:mongo_dart/mongo_dart.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:logbook_app_077/features/logbook/models/log_model.dart';
-import 'package:logbook_app_077/helpers/log_helper.dart'; // Import LogHelper kamu
+import 'package:logbook_app_077/helpers/log_helper.dart'; 
 
 class MongoService {
   // --- SINGLETON PATTERN ---
@@ -22,7 +22,6 @@ class MongoService {
 
   Future<DbCollection> _getSafeCollection() async {
     if (_db == null || !_db!.isConnected) {
-      // Level 3: Verbose (Detail proses internal)
       await LogHelper.writeLog(
         "Koneksi belum siap, mencoba menghubungkan...",
         source: _source,
@@ -51,8 +50,6 @@ class MongoService {
           throw "Koneksi ke MongoDB Atlas Timeout (Cek Whitelist IP/Sinyal)";
         },
       );
-      
-      // Level 2: Info/Success
       await LogHelper.writeLog(
         "DATABASE: Terhubung & Koleksi Siap",
         source: _source,
@@ -60,7 +57,6 @@ class MongoService {
       );
       
     } catch (e) {
-      // Level 1: Error
       await LogHelper.writeLog(
         "DATABASE: Gagal Koneksi - $e",
         source: _source,
@@ -75,8 +71,6 @@ class MongoService {
   Future<List<LogModel>> getLogs(String username) async {
     try {
       final collection = await _getSafeCollection();
-      
-      // Level 3: Verbose (Detail fetching)
       await LogHelper.writeLog(
         "Fetching data from Cloud for user: $username",
         source: _source,
@@ -105,8 +99,6 @@ class MongoService {
       data['username'] = username; 
       
       await collection.insertOne(data);
-
-      // Level 2: Success
       await LogHelper.writeLog(
         "SUCCESS: Data '${logData.title}' Saved to Cloud",
         source: _source,

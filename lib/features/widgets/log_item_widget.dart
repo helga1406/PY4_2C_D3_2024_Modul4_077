@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:logbook_app_077/features/logbook/models/log_model.dart';
+import 'package:intl/intl.dart'; 
 
 class LogItemWidget extends StatelessWidget {
   final LogModel log;
@@ -14,6 +15,15 @@ class LogItemWidget extends StatelessWidget {
     required this.onDelete,
     required this.onTap,
   });
+
+String _formatDateTime(String timestamp) {
+    try {
+      DateTime logTime = DateTime.parse(timestamp);
+      return DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(logTime);
+    } catch (e) {
+      return timestamp; 
+    }
+  }
 
   Color _getCategoryColor() {
     switch (log.category) {
@@ -53,7 +63,6 @@ class LogItemWidget extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Bagian Teks (Kiri)
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -73,10 +82,16 @@ class LogItemWidget extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
+    
                     Text(
-                      log.timestamp,
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      _formatDateTime(log.timestamp),
+                      style: const TextStyle(
+                        fontSize: 12, 
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w500
+                      ),
                     ),
+
                     const SizedBox(height: 8),
                     Text(
                       log.title,
@@ -88,6 +103,8 @@ class LogItemWidget extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       log.description,
+                      maxLines: 2, 
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                           fontSize: 14,
                           color: Colors.black.withValues(alpha: 0.7)),
