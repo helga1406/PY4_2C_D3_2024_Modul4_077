@@ -64,7 +64,7 @@ void main() {
 
       final result = await fakeService.getLogs("");
       actual = result.length;
-      expected = 0; // Ekspektasi data tidak bertambah karena username kosong
+      expected = 0; 
 
       // (3) verify (assert, check)
       expect(actual, expected, reason: 'Expected $expected but got $actual');
@@ -84,7 +84,7 @@ void main() {
 
       final result = await fakeService.getLogs("helga");
       actual = result.length;
-      expected = 0; // Ekspektasi data tidak bertambah karena judul kosong
+      expected = 0; 
 
       // (3) verify (assert, check)
       expect(actual, expected, reason: 'Expected $expected but got $actual');
